@@ -1,4 +1,3 @@
-// app/javascript/controllers/text_effect_controller.js
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
@@ -19,8 +18,11 @@ export default class extends Controller {
       }
 
       update() {
-        this.dx = (this.targetX - this.x) * 0.04
-        this.dy = (this.targetY - this.y) * 0.04
+        const randomSpeedX = 0.5 + Math.random() * 1.5
+        const randomSpeedY = 0.5 + Math.random() * 1.5
+      
+        this.dx = (this.targetX - this.x) * 0.04 * randomSpeedX
+        this.dy = (this.targetY - this.y) * 0.04 * randomSpeedY
         this.x += this.dx
         this.y += this.dy
       }
@@ -33,13 +35,16 @@ export default class extends Controller {
         ctx.beginPath()
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2)
         ctx.fill()
-
-        ctx.shadowBlur = 0
       }
 
       setTarget(x, y) {
         this.targetX = x
         this.targetY = y
+      }
+
+      setRandomTarget(width, height, spread = 300) {
+        this.targetX = width/2 + (Math.random() - 0.5) * spread
+        this.targetY = height/2 + (Math.random() - 0.5) * spread
       }
     }
 
@@ -52,8 +57,14 @@ export default class extends Controller {
         this.currentTextIndex = 0
         this.textChangeCount = 0
         this.lastTextChange = 0
-        this.transitionDuration = 8000
+        this.transitionDuration = 7000
         this.particleSpacing = 4
+        this.baseParticleCount = 2000
+        this.isTransitioning = false
+        this.transitionStartTime = 0
+        this.spreadDuration = 2000
+        this.gatherDuration = 3000
+        this.isInitialized = false
 
         this.resize()
         window.addEventListener('resize', () => this.resize())
@@ -62,7 +73,7 @@ export default class extends Controller {
         this.animate()
 
         document.fonts.ready.then(() => {
-          this.updateTextPoints(this.texts[0])
+          this.startInitialTransition()
         })
       }
 
@@ -75,7 +86,7 @@ export default class extends Controller {
 
       getTextPoints(text) {
         const fontSize = Math.min(this.canvas.width / 10, 120)
-        this.ctx.font = `bold ${fontSize}px "Russo One"`
+        this.ctx.font = `400 ${fontSize}px "Russo One"`
         
         const tempCanvas = document.createElement('canvas')
         const tempCtx = tempCanvas.getContext('2d')
@@ -91,6 +102,7 @@ export default class extends Controller {
         const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height)
         const points = new Set()
         const gap = 4
+        let pixelCount = 0
         
         for (let y = 0; y < tempCanvas.height; y += gap) {
           for (let x = 0; x < tempCanvas.width; x += gap) {
@@ -98,9 +110,13 @@ export default class extends Controller {
             if (imageData.data[i + 3] > 128) {
               const key = `${Math.round(x/gap)*gap},${Math.round(y/gap)*gap}`
               points.add(key)
+              pixelCount++
             }
           }
         }
+
+        this.maxParticles = Math.floor(this.baseParticleCount * (pixelCount / 500))
+        this.maxParticles = Math.min(Math.max(this.maxParticles, 1500), 3000)
 
         return Array.from(points).map(point => {
           const [x, y] = point.split(',').map(Number)
@@ -109,38 +125,79 @@ export default class extends Controller {
       }
 
       initParticles() {
-        for (let i = 0; i < 3000; i++) {
-          const x = this.canvas.width/2 + (Math.random() - 0.5) * 300
-          const y = this.canvas.height/2 + (Math.random() - 0.5) * 300
+        for (let i = 0; i < 2000; i++) {
+          const x = this.canvas.width/2 + (Math.random() - 0.5) * 1600
+          const y = this.canvas.height/2 + (Math.random() - 0.5) * 1600
           this.particles.push(new Particle(x, y))
         }
+      }
+
+      spreadParticles() {
+        this.particles.forEach(particle => {
+          particle.setRandomTarget(this.canvas.width, this.canvas.height, 1600)
+        })
       }
 
       updateTextPoints(text) {
         const points = this.getTextPoints(text)
         
-        const maxParticles = 3000
-        while (this.particles.length > maxParticles) {
+        while (this.particles.length > this.maxParticles) {
           this.particles.pop()
         }
         
-        while (this.particles.length < Math.min(points.length, maxParticles)) {
+        while (this.particles.length < Math.min(points.length, this.maxParticles)) {
           const x = this.canvas.width/2 + (Math.random() - 0.5) * 300
           const y = this.canvas.height/2 + (Math.random() - 0.5) * 300
           this.particles.push(new Particle(x, y))
         }
         
+        const stride = points.length / this.particles.length
         this.particles.forEach((particle, i) => {
-          const point = points[i % points.length]
+          const pointIndex = Math.floor(i * stride)
+          const point = points[pointIndex % points.length]
           if (point) {
             particle.setTarget(point.x, point.y)
           }
         })
       }
 
+      startInitialTransition() {
+        this.isTransitioning = true
+        this.transitionStartTime = Date.now()
+        
+        // 最初からパーティクルを広げた状態にする
+        this.particles.forEach(particle => {
+          particle.x = this.canvas.width/2 + (Math.random() - 0.5) * 1600
+          particle.y = this.canvas.height/2 + (Math.random() - 0.5) * 1600
+          particle.setRandomTarget(this.canvas.width, this.canvas.height, 1600)
+        })
+
+        setTimeout(() => {
+          this.updateTextPoints(this.texts[0])
+          setTimeout(() => {
+            this.isTransitioning = false
+            this.isInitialized = true
+            this.lastTextChange = Date.now()
+          }, this.gatherDuration)
+        }, this.spreadDuration)
+      }
+
+      startTransition() {
+        this.isTransitioning = true
+        this.transitionStartTime = Date.now()
+        this.spreadParticles()
+
+        setTimeout(() => {
+          this.updateTextPoints(this.texts[this.currentTextIndex])
+          setTimeout(() => {
+            this.isTransitioning = false
+          }, this.gatherDuration)
+        }, this.spreadDuration)
+      }
+
       animate() {
         const now = Date.now()
-        if (now - this.lastTextChange > this.transitionDuration) {
+        if (!this.isTransitioning && this.isInitialized && now - this.lastTextChange > this.transitionDuration) {
           this.currentTextIndex = (this.currentTextIndex + 1) % this.texts.length
           this.textChangeCount++
           
@@ -149,8 +206,8 @@ export default class extends Controller {
             this.textChangeCount = 0
           }
           
-          this.updateTextPoints(this.texts[this.currentTextIndex])
           this.lastTextChange = now
+          this.startTransition()
         }
 
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
