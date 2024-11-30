@@ -1,7 +1,8 @@
-<div class="fixed top-0 left-0 w-full h-screen bg-cover bg-center" style="background-image: url('path/to/your/background-image.jpg')">
-  <canvas 
-    data-controller="text-effect"
-    data-texts='["Fkerias", "Midline", "Field", "Sweet Spot", "Health"]'
-    class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
-  ></canvas>
+<div class="absolute inset-0 bg-cover bg-center z-0 overflow-hidden" style="background-image: url(<%= asset_path('backgraund.jpeg') %>)">
+  <div class="absolute inset-0 bg-black bg-opacity-60 md:bg-opacity-50"></div>
 </div>
+<canvas 
+  data-controller="text-effect"
+  data-texts='["Fkerias", "Midline", "Field", "Sweet\nSpot", "全ては\n連鎖する"]'
+  class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 w-full h-full touch-none"
+></canvas>

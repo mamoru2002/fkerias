@@ -14,22 +14,29 @@ export default class extends Controller {
         this.targetY = y
         this.dx = 0
         this.dy = 0
-        this.size = 1.2
+        this.size = this.calculateSize()
+      }
+
+      calculateSize() {
+        // スマートフォンではより小さなパーティクルに
+        return window.innerWidth < 768 ? 0.6 : 1.2
       }
 
       update() {
-        const randomSpeedX = 0.5 + Math.random() * 1.5
-        const randomSpeedY = 0.5 + Math.random() * 1.5
-      
-        this.dx = (this.targetX - this.x) * 0.04 * randomSpeedX
-        this.dy = (this.targetY - this.y) * 0.04 * randomSpeedY
+        // モバイルでは動きを少し速く
+        const speed = window.innerWidth < 768 ? 0.025 : 0.02
+        const randomSpeedX = 2 + Math.random() * 10
+        const randomSpeedY = 2 + Math.random() * 10
+
+        this.dx = (this.targetX - this.x) * speed * randomSpeedX
+        this.dy = (this.targetY - this.y) * speed * randomSpeedY
         this.x += this.dx
         this.y += this.dy
       }
 
       draw(ctx) {
         ctx.shadowColor = '#ffffff'
-        ctx.shadowBlur = 3
+        ctx.shadowBlur = window.innerWidth < 768 ? 1.5 : 3
         
         ctx.fillStyle = '#fff'
         ctx.beginPath()
@@ -43,8 +50,9 @@ export default class extends Controller {
       }
 
       setRandomTarget(width, height, spread = 300) {
-        this.targetX = width/2 + (Math.random() - 0.5) * spread
-        this.targetY = height/2 + (Math.random() - 0.5) * spread
+        const spreadFactor = window.innerWidth < 768 ? 0.7 : 1
+        this.targetX = width/2 + (Math.random() - 0.5) * spread * spreadFactor
+        this.targetY = height/2 + (Math.random() - 0.5) * spread * spreadFactor
       }
     }
 
@@ -57,23 +65,32 @@ export default class extends Controller {
         this.currentTextIndex = 0
         this.textChangeCount = 0
         this.lastTextChange = 0
-        this.transitionDuration = 7000
-        this.particleSpacing = 4
-        this.baseParticleCount = 2000
+        this.transitionDuration = window.innerWidth < 768 ? 4000 : 5500
+        this.particleSpacing = window.innerWidth < 768 ? 3 : 4  // パーティクルの間隔を縮小
+        this.baseParticleCount = window.innerWidth < 768 ? 2500 : 2000  // モバイルではパーティクル数を増加
         this.isTransitioning = false
         this.transitionStartTime = 0
-        this.spreadDuration = 2000
-        this.gatherDuration = 3000
+        this.spreadDuration = window.innerWidth < 768 ? 800 : 1000
+        this.gatherDuration = window.innerWidth < 768 ? 1600 : 2000
         this.isInitialized = false
 
         this.resize()
-        window.addEventListener('resize', () => this.resize())
+        window.addEventListener('resize', () => {
+          this.resize()
+          this.updateParticleProperties()
+        })
         
         this.initParticles()
         this.animate()
 
         document.fonts.ready.then(() => {
           this.startInitialTransition()
+        })
+      }
+
+      updateParticleProperties() {
+        this.particles.forEach(particle => {
+          particle.size = particle.calculateSize()
         })
       }
 
@@ -85,8 +102,12 @@ export default class extends Controller {
       }
 
       getTextPoints(text) {
-        const fontSize = Math.min(this.canvas.width / 10, 120)
-        this.ctx.font = `400 ${fontSize}px "Russo One"`
+        // フォントサイズの設定
+        const fontSize = Math.min(
+          this.canvas.width / (window.innerWidth < 768 ? 4 : 8),
+          window.innerWidth < 768 ? 140 : 120
+        )
+        this.ctx.font = `500 ${fontSize}px "Rajdhani"`
         
         const tempCanvas = document.createElement('canvas')
         const tempCtx = tempCanvas.getContext('2d')
@@ -97,11 +118,21 @@ export default class extends Controller {
         tempCtx.font = this.ctx.font
         tempCtx.textAlign = 'center'
         tempCtx.textBaseline = 'middle'
-        tempCtx.fillText(text, tempCanvas.width/2, tempCanvas.height/2)
+    
+        // テキストを行に分割
+        const lines = text.split('\n')
+        const lineHeight = fontSize * 1.2 // 行間を設定
+        const totalHeight = lineHeight * (lines.length - 1)
+        
+        // 各行を描画
+        lines.forEach((line, i) => {
+          const y = tempCanvas.height/2 - totalHeight/2 + i * lineHeight
+          tempCtx.fillText(line, tempCanvas.width/2, y)
+        })
         
         const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height)
         const points = new Set()
-        const gap = 4
+        const gap = this.particleSpacing
         let pixelCount = 0
         
         for (let y = 0; y < tempCanvas.height; y += gap) {
@@ -115,9 +146,12 @@ export default class extends Controller {
           }
         }
 
+        // モバイルでは最小・最大パーティクル数を増加
+        const minParticles = window.innerWidth < 768 ? 1500 : 1500
+        const maxParticles = window.innerWidth < 768 ? 3500 : 3000
         this.maxParticles = Math.floor(this.baseParticleCount * (pixelCount / 500))
-        this.maxParticles = Math.min(Math.max(this.maxParticles, 1500), 3000)
-
+        this.maxParticles = Math.min(Math.max(this.maxParticles, minParticles), maxParticles)
+    
         return Array.from(points).map(point => {
           const [x, y] = point.split(',').map(Number)
           return {x, y}
@@ -125,7 +159,8 @@ export default class extends Controller {
       }
 
       initParticles() {
-        for (let i = 0; i < 2000; i++) {
+        const initialCount = window.innerWidth < 768 ? 2500 : 2000
+        for (let i = 0; i < initialCount; i++) {
           const x = this.canvas.width/2 + (Math.random() - 0.5) * 1600
           const y = this.canvas.height/2 + (Math.random() - 0.5) * 1600
           this.particles.push(new Particle(x, y))
@@ -133,8 +168,9 @@ export default class extends Controller {
       }
 
       spreadParticles() {
+        const spread = window.innerWidth < 768 ? 1200 : 1600
         this.particles.forEach(particle => {
-          particle.setRandomTarget(this.canvas.width, this.canvas.height, 1600)
+          particle.setRandomTarget(this.canvas.width, this.canvas.height, spread)
         })
       }
 
@@ -165,11 +201,11 @@ export default class extends Controller {
         this.isTransitioning = true
         this.transitionStartTime = Date.now()
         
-        // 最初からパーティクルを広げた状態にする
+        const spread = window.innerWidth < 768 ? 1200 : 1600
         this.particles.forEach(particle => {
-          particle.x = this.canvas.width/2 + (Math.random() - 0.5) * 1600
-          particle.y = this.canvas.height/2 + (Math.random() - 0.5) * 1600
-          particle.setRandomTarget(this.canvas.width, this.canvas.height, 1600)
+          particle.x = this.canvas.width/2 + (Math.random() - 0.5) * spread
+          particle.y = this.canvas.height/2 + (Math.random() - 0.5) * spread
+          particle.setRandomTarget(this.canvas.width, this.canvas.height, spread)
         })
 
         setTimeout(() => {
