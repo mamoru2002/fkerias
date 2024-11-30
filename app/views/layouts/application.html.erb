@@ -22,7 +22,48 @@
   </head>
 
   <body class="bg-dark-blue">
-    <main class="min-h-screen flex items-center justify-center overflow-hidden relative">
+    <header class="bg-white shadow-md fixed w-full top-0 z-50">
+  <div class="container mx-auto px-4">
+    <div class="flex justify-between items-center h-16">
+      <!-- 左側：ロゴ/サイト名とナビゲーション -->
+      <div class="flex items-center space-x-8">
+        <!-- ロゴ -->
+        <%= link_to root_path, class: "font-russo text-xl text-gray-800 hover:text-gray-600" do %>
+          Fkerias
+        <% end %>
+
+        <!-- ナビゲーションメニュー -->
+        <nav class="flex items-center space-x-6">
+          <%= link_to "HOME", root_path, 
+              class: "text-gray-600 hover:text-gray-800 text-sm font-medium
+                     #{current_page?(root_path) ? 'text-gray-800 border-b-2 border-gray-800' : ''}" %>
+          
+          <%= link_to "COLUMN", posts_path, 
+              class: "text-gray-600 hover:text-gray-800 text-sm font-medium
+                     #{current_page?(posts_path) ? 'text-gray-800 border-b-2 border-gray-800' : ''}" %>
+        </nav>
+      </div>
+
+      <!-- 右側：管理者メニュー -->
+      <div>
+        <% if session[:admin] %>
+          <div class="flex items-center space-x-4">
+            <%= link_to "新規投稿", new_admin_post_path, 
+                class: "bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm" %>
+            <%= button_to admin_logout_path, 
+                method: :delete,
+                class: "bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 text-sm" do %>
+              ログアウト
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</header>
+
+    <!-- メインコンテンツ -->
+    <main class="min-h-screen pt-16 flex items-center justify-center overflow-hidden relative">
       <%= yield %>
     </main>
   </body>

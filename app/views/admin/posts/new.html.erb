@@ -1,0 +1,26 @@
+<!-- app/views/admin/posts/new.html.erb -->
+<div class="flex justify-center items-center min-h-screen w-full p-4">
+  <div class="w-full max-w-md bg-white rounded-lg shadow-xl p-6">
+    <%= form_with(model: [:admin, @post], local: true, class: "space-y-4") do |f| %>
+      <!-- エラーメッセージ表示部分を追加 -->
+      <% if @post.errors.any? %>
+        <div class="bg-red-50 text-red-500 p-4 rounded-md">
+          <ul>
+            <% @post.errors.full_messages.each do |message| %>
+              <li><%= message %></li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+
+      <div>
+        <%= f.label :content, "Content", class: "block text-sm font-medium text-gray-700" %>
+        <%= f.text_area :content, rows: 4, class: "mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500" %>
+      </div>
+
+      <div class="flex justify-end">
+        <%= f.submit "Post", class: "bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700" %>
+      </div>
+    <% end %>
+  </div>
+</div>
