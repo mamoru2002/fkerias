@@ -15,21 +15,41 @@ export default class extends Controller {
         this.dx = 0
         this.dy = 0
         this.size = this.calculateSize()
+        this.acceleration = 0
+        this.isSpreadingOut = false
+        this.transitionProgress = 0
       }
 
       calculateSize() {
-        // スマートフォンではより小さなパーティクルに
         return window.innerWidth < 768 ? 0.6 : 1.2
       }
 
       update() {
-        // モバイルでは動きを少し速く
-        const speed = window.innerWidth < 768 ? 0.025 : 0.02
-        const randomSpeedX = 2 + Math.random() * 10
-        const randomSpeedY = 2 + Math.random() * 10
+        const speed = window.innerWidth < 768 ? 0.015 : 0.01
+        
+        if (this.isSpreadingOut) {
+          this.acceleration += 0.001
+        } else {
+          this.acceleration += 0.002
+        }
+        this.acceleration = Math.min(this.acceleration, 1)
+        
+        let easedSpeed
+        if (this.isSpreadingOut) {
+          const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
+          easedSpeed = speed * 2 * easeOutCubic(this.acceleration)
+        } else {
+          const easeInOutQuad = (t) => {
+            return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+          }
+          easedSpeed = speed * easeInOutQuad(this.acceleration)
+        }
 
-        this.dx = (this.targetX - this.x) * speed * randomSpeedX
-        this.dy = (this.targetY - this.y) * speed * randomSpeedY
+        const randomSpeedX = 1 + Math.random() * (this.isSpreadingOut ? 8 : 5)
+        const randomSpeedY = 1 + Math.random() * (this.isSpreadingOut ? 8 : 5)
+
+        this.dx = (this.targetX - this.x) * easedSpeed * randomSpeedX
+        this.dy = (this.targetY - this.y) * easedSpeed * randomSpeedY
         this.x += this.dx
         this.y += this.dy
       }
@@ -47,12 +67,16 @@ export default class extends Controller {
       setTarget(x, y) {
         this.targetX = x
         this.targetY = y
+        this.acceleration = 0
+        this.isSpreadingOut = false
       }
 
       setRandomTarget(width, height, spread = 300) {
         const spreadFactor = window.innerWidth < 768 ? 0.7 : 1
         this.targetX = width/2 + (Math.random() - 0.5) * spread * spreadFactor
         this.targetY = height/2 + (Math.random() - 0.5) * spread * spreadFactor
+        this.acceleration = 0
+        this.isSpreadingOut = true
       }
     }
 
@@ -65,13 +89,13 @@ export default class extends Controller {
         this.currentTextIndex = 0
         this.textChangeCount = 0
         this.lastTextChange = 0
-        this.transitionDuration = window.innerWidth < 768 ? 4000 : 5500
-        this.particleSpacing = window.innerWidth < 768 ? 3 : 4  // パーティクルの間隔を縮小
-        this.baseParticleCount = window.innerWidth < 768 ? 2500 : 2000  // モバイルではパーティクル数を増加
+        this.transitionDuration = window.innerWidth < 768 ? 6000 : 16500
+        this.particleSpacing = window.innerWidth < 768 ? 3 : 4
+        this.baseParticleCount = window.innerWidth < 768 ? 2500 : 2000
         this.isTransitioning = false
         this.transitionStartTime = 0
-        this.spreadDuration = window.innerWidth < 768 ? 800 : 1000
-        this.gatherDuration = window.innerWidth < 768 ? 1600 : 2000
+        this.spreadDuration = window.innerWidth < 768 ? 2000 : 5000
+        this.gatherDuration = window.innerWidth < 768 ? 2400 : 6000
         this.isInitialized = false
 
         this.resize()
@@ -102,7 +126,6 @@ export default class extends Controller {
       }
 
       getTextPoints(text) {
-        // フォントサイズの設定
         const fontSize = Math.min(
           this.canvas.width / (window.innerWidth < 768 ? 4 : 8),
           window.innerWidth < 768 ? 140 : 120
@@ -119,12 +142,10 @@ export default class extends Controller {
         tempCtx.textAlign = 'center'
         tempCtx.textBaseline = 'middle'
     
-        // テキストを行に分割
         const lines = text.split('\n')
-        const lineHeight = fontSize * 1.2 // 行間を設定
+        const lineHeight = fontSize * 1.2
         const totalHeight = lineHeight * (lines.length - 1)
         
-        // 各行を描画
         lines.forEach((line, i) => {
           const y = tempCanvas.height/2 - totalHeight/2 + i * lineHeight
           tempCtx.fillText(line, tempCanvas.width/2, y)
@@ -146,7 +167,6 @@ export default class extends Controller {
           }
         }
 
-        // モバイルでは最小・最大パーティクル数を増加
         const minParticles = window.innerWidth < 768 ? 1500 : 1500
         const maxParticles = window.innerWidth < 768 ? 3500 : 3000
         this.maxParticles = Math.floor(this.baseParticleCount * (pixelCount / 500))
@@ -213,7 +233,7 @@ export default class extends Controller {
           setTimeout(() => {
             this.isTransitioning = false
             this.isInitialized = true
-            this.lastTextChange = Date.now()
+            this.lastTextChange = Date.now() - (this.transitionDuration - this.gatherDuration)
           }, this.gatherDuration)
         }, this.spreadDuration)
       }
